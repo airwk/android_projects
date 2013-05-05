@@ -1,104 +1,119 @@
 package airwk.plugin.fbx;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import airwk.plugin.fbx.core.*;
-import airwk.plugin.fbx.math.*;
+import airwk.plugin.fbx.core.FbxObject;
+import airwk.plugin.fbx.math.FbxVector3;
 import airwk.plugin.fbx.scene.FbxScene;
 import airwk.plugin.fbx.scene.animation.*;
 import airwk.plugin.fbx.scene.geometry.*;
 import airwk.plugin.fbx.scene.shading.*;
 
-
 public class FbxFile
 {
-	private FbxScene scene = null;
+	class FbxQueue<T>
+	{
+		private int index;
+		private T elements[];
+		
+		public FbxQueue(T elements[])
+		{
+			this.elements = elements;
+		}
+		
+		public boolean isEmpty()
+		{
+			return (index >= elements.length);
+		}
 
-	private static StringBuilder sb = new StringBuilder();
-	
-	public static FbxScene open(InputStream inputStream)
-	{
-		FbxFile file = new FbxFile(inputStream);
-		return file.scene;
+		public T dequeue()
+		{
+			return elements[index++];
+		}
 	}
 	
-	private FbxFile(InputStream inputStream)
-	{
-		scene = new FbxScene();
-		load(inputStream);
-	}
+	// Attribute //
+	private FbxScene scene = new FbxScene();
+	private FbxQueue<String> queue = null;
 	
-	private void load(InputStream inputStream)
-	{
-		String data = loadString(inputStream);
-		readData(data);
-	}
+	private short model_count = 0, geometry_count = 0, node_attribute_count = 0, anim_curve_count = 0, anim_curve_node_count = 0,
+			deformer_count = 0, material_count = 0, texture_count = 0, video_count = 0;
+
+	private int startFrame = 0, endFrame = 0, keyframeLength = 0;
 	
-	private String loadString(InputStream inputStream)
+	private HashMap<Long, FbxObject> maps = new HashMap<Long, FbxObject>();
+	private ArrayList<FbxNode> rootnodes = new ArrayList<FbxNode>();
+	//	//
+	
+	public FbxFile(InputStream inputStream)
 	{
+		String fbxFileString = "";
+		
 		try
 		{
 			InputStreamReader isr = new InputStreamReader(inputStream);
 			char[] buffer = new char[inputStream.available()];
 			isr.read(buffer);
 
-			String s = new String(buffer);
-			
+			fbxFileString = new String(buffer);
 
 			isr.close();
 			isr = null;
-			
-			return s;
 		} 
 		catch (IOException e)
 		{
 			System.out.println(e.getMessage());
 		}
 		
-		return "";
+		
+		queue = new FbxQueue<String>(fbxFileString.split("\n"));
+		read();
+		setup();
 	}
 	
-	private void readData(String data)
+	private void read()
 	{
-		// Count
-		int model_count = 0;
-		int geometry_count = 0;
-		int node_attribute_count = 0;
-		int anim_curve_count = 0;
-		int anim_curve_node_count = 0;
-		int deformer_count = 0;
-		int material_count = 0;
-		int texture_count = 0;
-		int video_count = 0;
-		
-		int startFrame = 0, endFrame = 0;
-		int keyframeLength = 0;
-		
-		HashMap<Long, FbxObject> maps = new HashMap<Long, FbxObject>();
-		
-		// Object properties
-		int current_geometry_count = 0;
-		int current_node_attribute_count = 0;
-		int current_node_count = 0;
-		int current_deformer_count = 0;
-		int current_anim_curve_node_count = 0;
-		int current_anim_curve_count = 0;
-
-		int current_material_count = 0;
-		int current_texture_count = 0;
-		int current_video_count = 0;
-
-		FbxQueue<String> queue = new FbxQueue<String>(data.split("\n"));
-		ArrayList<FbxNode> rootnodes = new ArrayList<FbxNode>();
-		String line = "";
-		
-		// Global Setting
-		while(!line.startsWith("; Object definitions"))
+		while(!queue.isEmpty())
 		{
-			line = queue.dequeue().trim();
+			String line = queue.dequeue().trim();
 			
+			if(line.startsWith("FBXHeaderExtension"))
+			{
+				readFBXHeaderExtension();
+			}
+			else if(line.startsWith("GlobalSettings"))
+			{
+				readGlobalSettings();
+			}
+			else if(line.startsWith("Definitions"))
+			{
+				readDefinitions();
+			}
+			else if(line.startsWith("Objects"))
+			{
+				readObjects();
+			}
+			else if(line.startsWith("Connections"))
+			{
+				readConnections();
+			}
+		}
+	}
+	
+	private void readFBXHeaderExtension()
+	{
+		
+	}
+	
+	private void readGlobalSettings()
+	{
+		String line = "";
+		while(!(line = queue.dequeue().trim()).startsWith(";"))
+		{
 			if(line.startsWith("P: \"TimeMode"))
 			{
 				scene.globalSetting().getTimeMode().setMode(getLastCommaAsInt(line));
@@ -129,16 +144,18 @@ public class FbxFile
 			}
 		}
 		
-		// Object definitions
-		while(!line.startsWith("; Object properties"))
-		{
-			line = queue.dequeue().trim();
+	}
 
+	private void readDefinitions()
+	{
+		String line = "";
+		while(!(line = queue.dequeue().trim()).startsWith(";"))
+		{
 			if(line.startsWith("ObjectType:"))
 			{
 				line = line.split("\"")[1];
 				String attribute = queue.dequeue();
-				int count = toInt(attribute.split(": ")[1].trim());
+				short count = Short.parseShort(attribute.split(": ")[1].trim());
 				
 				if(line.equals("Model"))
 				{
@@ -177,496 +194,537 @@ public class FbxFile
 					video_count = count;
 				}
 			}
-			
-		}	
+		}
+	}
+
+	private void readObjects()
+	{
+		// Object properties
+		int current_geometry_count = 0, current_node_attribute_count = 0, current_node_count = 0, current_deformer_count = 0,
+			current_anim_curve_node_count = 0, current_anim_curve_count = 0, current_material_count = 0, current_texture_count = 0, current_video_count = 0;
 		
-		// Object Properties
-		while(!line.startsWith("; Object connections"))
+		String line = "";
+		while(!(line = queue.dequeue().trim()).startsWith(";"))
 		{
-			line = queue.dequeue().trim();
+			// read Geometry
 			if(current_geometry_count < geometry_count)
 			{
 				if(line.startsWith("Geometry:"))
 				{
-					current_geometry_count += 1;
-					
-					Object[] geoItems = getID_NameAndType(line.substring(10));
-					long geometry_id = (Long) geoItems[0];
-
-					FbxMesh mesh = new FbxMesh(geometry_id);
-
-					while(true)
-					{
-						line = queue.dequeue().trim();
-						if (line.startsWith("Vert"))
-						{
-							int count = toInt(line.substring(11).split(" ")[0]);
-							mesh.setVertices(readFloatAttribute(queue, count));
-						} 
-						else if (line.startsWith("Poly"))
-						{
-							int count = toInt(line.substring(21).split(" ")[0]);
-							mesh.setIndices(readIndicesAttribute(queue, count));
-						} 
-						else if (line.startsWith("Normals"))
-						{
-							int count = toInt(line.substring(10).split(" ")[0]);
-
-							mesh.setNormals(readFloatAttribute(queue, count));
-						} 
-						else if (line.startsWith("UV:"))
-						{
-							int count = toInt(line.substring(5).split(" ")[0]);
-							mesh.setUV(readFloatAttribute(queue, count));
-						} 
-						else if (line.startsWith("UVIndex"))
-						{
-							int count = toInt(line.substring(10).split(" ")[0]);
-							mesh.setUVIndices(readUVIndicesAttribute(queue, count));
-							break;
-						}
-					}
-
-					maps.put(geometry_id, mesh);
+					current_geometry_count++;
+					readGeometry(line);
 				}
-				
-
-				
 			}
-			
+			// read nodeAttribute
 			if(current_node_attribute_count < node_attribute_count)
 			{
-				if(line.startsWith("NodeAttribute: "))
+				if(line.startsWith("NodeAttribute:"))
 				{
-					current_node_attribute_count += 1;
-
-					Object[] items = getID_NameAndType(line.substring(15));
-					long node_attribute_id = (Long) items[0];
-
-					int attributeType;
-					FbxNodeAttribute nodeAttribute = null;
-
-					if(items[2].equals("Null"))
-					{
-						attributeType = FbxNodeAttribute.Null;
-						nodeAttribute = new FbxNodeAttribute(node_attribute_id, attributeType);
-					}
-					else if(items[2].equals("Mesh"))
-					{
-						attributeType = FbxNodeAttribute.Mesh;
-						nodeAttribute = new FbxNodeAttribute(node_attribute_id, attributeType);
-					}
-					else
-					{
-						int skeletonType = 0;
-
-						if(line.contains("Limb")) // Limb  or LimbNode
-						{
-							skeletonType = FbxSkeleton.LimbNode;
-						}
-						else if(line.contains("Root") || line.contains("Effector"))
-						{
-							skeletonType = FbxSkeleton.Root;
-						}
-
-						nodeAttribute = new FbxSkeleton(node_attribute_id, skeletonType);
-					}
-
-					maps.put(node_attribute_id, nodeAttribute);
+					current_node_attribute_count++;
+					readNodeAttribute(line);
 				}
-				
-				
 			}
-			
+			// read Node
 			if(current_node_count < model_count)
 			{
-				
-				if(line.startsWith("Model: "))
+				if(line.startsWith("Model:"))
 				{
-					current_node_count += 1;
-					
-					StringBuilder[] item = new StringBuilder[2];
-					item[0] = new StringBuilder();
-					item[1] = new StringBuilder();
-					int inner_index = 0;
-					boolean begin = false;
-					char temp = 0;
-
-					for (int j = 0; j < line.length(); j++)
-					{
-						char c = line.charAt(j);
-
-						if (temp == ':')
-						{
-							if (c == ' ')
-							{
-								begin = true;
-								inner_index = 0;
-								continue;
-							} 
-							else if (c == ':')
-							{
-								begin = true;
-								inner_index = 1;
-								continue;
-							}
-						}
-
-						if (c == '"' || c == ',')
-						{
-							begin = false;
-
-							if (inner_index == 1)
-							{
-								break;
-							}
-						}
-
-						if (begin)
-						{
-							item[inner_index].append(c);
-						}
-
-						temp = c;
-					}
-
-					long nodeID = toLong(item[0].toString().trim());
-					String nodeName = item[1].toString();
-					
-					FbxNode node = new FbxNode(nodeID);
-					node.setName(nodeName);
-
-					FbxVector3 lclT = new FbxVector3();
-					FbxVector3 lclR = new FbxVector3();
-					FbxVector3 lclS = new FbxVector3(1,1,1);
-
-					while(!(line = queue.dequeue()).contains("}"))
-					{
-						if (line.contains("Lcl Translation"))
-						{
-							lclT = new FbxVector3(splitCommaToFloatArray(line, 3));
-						} else if (line.contains("Lcl Rotation"))
-						{
-							lclR = new FbxVector3(splitCommaToFloatArray(line, 3));
-						} else if (line.contains("Lcl Scaling"))
-						{
-							lclS = new FbxVector3(splitCommaToFloatArray(line, 3));
-						}
-					}
-
-					node.setLclTranslation(lclT);
-					node.setLclRotation(lclR);
-					node.setLclScaling(lclS);
-
-					maps.put(nodeID, node);
+					current_node_count++;
+					readModel(line);
 				}
-				
-				
 			}
-			
+			// read Deformer
 			if(current_deformer_count < deformer_count)
 			{
-				if (line.startsWith("Deformer: "))
+				if (line.startsWith("Deformer:"))
 				{
-					current_deformer_count += 1;
-
-					Object[] items = getID_NameAndType(line.substring(10));
-					long deformer_id = (Long) items[0];
-
-					if (items[2].equals("Skin"))
-					{
-						FbxSkin skin = new FbxSkin(deformer_id);
-						maps.put(deformer_id, skin);
-					}
-					else
-					{
-						FbxCluster cluster = new FbxCluster(deformer_id);
-
-						while(true)
-						{
-							line = queue.dequeue().trim();
-							if (line.startsWith("Indexes"))
-							{
-								int count = toInt(line.substring(10).split(" ")[0]);
-								cluster.setIndices(readIntAttribute(queue, count));
-							} 
-							else if (line.startsWith("Weights"))
-							{
-								int count = toInt(line.substring(10).split(" ")[0]);
-								cluster.setWeights(readFloatAttribute(queue, count));
-							} 
-							else if (line.startsWith("Transform:"))
-							{
-								int count = toInt(line.substring(12).split(" ")[0]);
-								cluster.setTransform(readFloatAttribute(queue, count));
-							}
-							else if (line.startsWith("TransformLink"))
-							{
-								int count = toInt(line.substring(16).split(" ")[0]);
-								cluster.setTransformLink(readFloatAttribute(queue, count));
-								break;
-							}
-						}
-
-						maps.put(deformer_id, cluster);
-					}
+					current_deformer_count++;
+					readDeformer(line);
 				}
-				
-				
 			}
-			
+			// read Material
 			if(current_material_count < material_count)
 			{
 				if (line.startsWith("Material:"))
 				{
-					current_material_count += 1;
-
-					Object[] items = getID_NameAndType(line.substring(10));
-
-					long material_id = (Long) items[0];
-					String material_name = ((String)items[1]).substring(10);
-
-					FbxSurfacePhong material = new FbxSurfacePhong(material_id);
-					material.setName(material_name);
-
-					// Read Properties
-					while(!line.contains("}"))
-					{
-						line = queue.dequeue().trim();
-
-						if(line.startsWith("P: \"Emissive\""))
-						{
-							material.getEmissive().set(new FbxVector3(splitCommaToFloatArray(line, 3)));
-						}
-						else if(line.startsWith("P: \"Ambient\""))
-						{
-							material.getAmbient().set(new FbxVector3(splitCommaToFloatArray(line, 3)));
-						}
-						else if(line.startsWith("P: \"Diffuse\""))
-						{
-							material.getDiffuse().set(new FbxVector3(splitCommaToFloatArray(line, 3)));
-						}
-						else if(line.startsWith("P: \"NormalMap\""))
-						{
-							material.getNormalMap().set(new FbxVector3(splitCommaToFloatArray(line, 3)));
-						}
-						else if(line.startsWith("P: \"Bump\""))
-						{
-							material.getBump().set(new FbxVector3(splitCommaToFloatArray(line, 3)));
-						}
-						else if(line.startsWith("P: \"TransparentColor\""))
-						{
-							material.getTransparentColor().set(new FbxVector3(splitCommaToFloatArray(line, 3)));
-						}
-						else if(line.startsWith("P: \"DisplacementColor\""))
-						{
-							material.getDisplacementColor().set(new FbxVector3(splitCommaToFloatArray(line, 3)));
-						}
-						else if(line.startsWith("P: \"VectorDisplacementColor\""))
-						{
-							material.getVectorDisplacementColor().set(new FbxVector3(splitCommaToFloatArray(line, 3)));
-						}
-						else if(line.startsWith("P: \"Specular\""))
-						{
-							material.getSpecular().set(new FbxVector3(splitCommaToFloatArray(line, 3)));
-						}
-						else if(line.startsWith("P: \"Reflection\""))
-						{
-							material.getReflection().set(new FbxVector3(splitCommaToFloatArray(line, 3)));
-						}
-						else if(line.startsWith("P: \"Shinniness\""))
-						{
-							material.setShinniness( splitCommaToFloat(line) );
-						}
-						else if(line.startsWith("P: \"EmissiveFactor"))
-						{
-							material.setEmissiveFactor( splitCommaToFloat(line) );
-						}
-						else if(line.startsWith("P: \"AmbientFactor"))
-						{
-							material.setAmbientFactor( splitCommaToFloat(line) );
-						}
-						else if(line.startsWith("P: \"DiffuseFactor"))
-						{
-							material.setDiffuseFactor( splitCommaToFloat(line) );
-						}
-						else if(line.startsWith("P: \"BumpFactor"))
-						{
-							material.setBumpFactor( splitCommaToFloat(line) );
-						}
-						else if(line.startsWith("P: \"TransparencyFactor"))
-						{
-							material.setTransparencyFactor( splitCommaToFloat(line) );
-						}
-						else if(line.startsWith("P: \"DisplacementFactor"))
-						{
-							material.setDisplacementFactor( splitCommaToFloat(line) );
-						}
-						else if(line.startsWith("P: \"VectorDisplacementFactor"))
-						{
-							material.setVectorDisplacementFactor( splitCommaToFloat(line) );
-						}
-						else if(line.startsWith("P: \"SpecularFactor"))
-						{
-							material.setSpecularFactor( splitCommaToFloat(line) );
-						}
-						else if(line.startsWith("P: \"ReflectionFactor"))
-						{
-							material.setReflectionFactor( splitCommaToFloat(line) );
-						}
-
-//						P: "EmissiveFactor", "double", "Number", "",0
-//						P: "AmbientColor", "ColorRGB", "Color", "",0.317647069692612,0.317647069692612,0.317647069692612
-//						P: "DiffuseColor", "ColorRGB", "Color", "",0.317647069692612,0.317647069692612,0.317647069692612
-//						P: "TransparentColor", "ColorRGB", "Color", "",1,1,1
-//						P: "SpecularColor", "ColorRGB", "Color", "",0.899999976158142,0.899999976158142,0.899999976158142
-//						P: "SpecularFactor", "double", "Number", "",0
-//						P: "ShininessExponent", "double", "Number", "",1.99999991737042
-//						P: "Emissive", "Vector3D", "Vector", "",0,0,0
-//						P: "Ambient", "Vector3D", "Vector", "",0.317647069692612,0.317647069692612,0.317647069692612
-//						P: "Diffuse", "Vector3D", "Vector", "",0.317647069692612,0.317647069692612,0.317647069692612
-//						P: "Specular", "Vector3D", "Vector", "",0,0,0
-//						P: "Shininess", "double", "Number", "",1.99999991737042
-//						P: "Opacity", "double", "Number", "",1
-//						P: "Reflectivity", "double", "Number", "",0
-					}
-
-					maps.put(material_id, material);
+					current_material_count++;
+					readMaterial(line);
 				}
 			}
-			
-			if(current_texture_count < texture_count)
-			{
-				if (line.startsWith("Texture:"))
-				{
-					current_texture_count += 1;
-					String[] t = line.substring(9).split(",");
-					long texture_id = toLong(t[0]);
-					String texture_name = t[1].split("\"")[1].substring(9);
-
-					FbxFileTexture texture = new FbxFileTexture(texture_id);
-					texture.setName(texture_name);
-
-					while(!line.contains("}"))
-					{
-						line = queue.dequeue().trim();
-					}
-					line = queue.dequeue().trim();
-					// Read Properties
-					while(!line.contains("}"))
-					{
-						line = queue.dequeue().trim();
-						String[] tmp = line.split("\"");
-
-						if(line.startsWith("FileName:"))
-						{
-							String tt = tmp[tmp.length-1];
-							String fileName = tt;
-
-							int indexOfSlash = tt.lastIndexOf("\\");
-
-							if(indexOfSlash > -1)
-							{
-								fileName = tt.substring(indexOfSlash+1);
-							}
-
-							texture.setFileName(fileName);
-						}
-						else if(line.startsWith("RelativeFilename:"))
-						{
-							String tt = tmp[tmp.length-1];
-							texture.setRelativeFileName(tt);
-						}
-						else if(line.startsWith("Media:"))
-						{
-
-						}
-					}
-
-					maps.put(texture_id, texture);
-				}
-				
-				
-			}
-			
-			if(current_video_count < video_count)
-			{
-				if (line.startsWith("Video:"))
-				{
-					current_video_count += 1;
-//					String[] t = line.substring(7).split(",");
-//					long video_id = Convert.toLong(t[0]);
-//					String video_name = t[1].split("\"")[1].substring(7);
-				}
-			}
-			
+			// read AnimCurvNode
 			if(current_anim_curve_node_count < anim_curve_node_count)
 			{
 				if (line.startsWith("AnimationCurveNode:"))
 				{
-					current_anim_curve_node_count += 1;
-					long anim_curve_node_id = toLong(line.substring(20).split(",")[0]);
-					FbxAnimCurveNode animCurveNode = new FbxAnimCurveNode(anim_curve_node_id);
-
-					maps.put(anim_curve_node_id, animCurveNode);
+					current_anim_curve_node_count++;
+					readAnimCurveNode(line);
 				}
 			}
-			
+			// read AnimCurve
 			if(current_anim_curve_count < anim_curve_count)
 			{
-				if	(line.startsWith("AnimationCurve:"))
+				if (line.startsWith("AnimationCurve:"))
 				{
-					current_anim_curve_count += 1;
-					long anim_curve_id = toLong(line.substring(16).split(",")[0]);
-					FbxAnimCurve animCurve = new FbxAnimCurve(anim_curve_id);
-
-					long[] times = null;
-					float[] values = null;
-
-					while(true)
-					{
-						line = queue.dequeue().trim();
-						if (line.startsWith("KeyTime:"))
-						{
-							int count = toInt(line.substring(10).split(" ")[0]);
-							times = readLongAttribute(queue, count);
-							if(times.length > 0)
-							{
-								int length = (int) ( (times[times.length - 1] - times[0])  / 1539538600L) + 1;
-								if(length > keyframeLength)
-								{
-									keyframeLength = length;
-									startFrame = (int) (times[0] / 1539538600L);
-									endFrame = (int) (times[times.length - 1] / 1539538600L);
-								}
-							}
-						}
-						else if (line.startsWith("KeyValueFloat:"))
-						{
-							int count = toInt(line.substring(16).split(" ")[0]);
-							values = readFloatAttribute(queue, count);
-							break;
-						}
-					}
-
-					animCurve.set(times, values);
-					maps.put(anim_curve_id, animCurve);
+					current_anim_curve_count++;
+					readAnimCurve(line);
 				}
-				
-				
 			}
-			
-			
+			// read Texture
+			if(current_texture_count < texture_count)
+			{
+				if (line.startsWith("Texture:"))
+				{
+					current_texture_count++;
+					readTexture(line);
+				}
+			}
+			// read Video
+			if(current_video_count < video_count)
+			{
+				if (line.startsWith("Video:"))
+				{
+					current_video_count++;
+					readVideo(line);
+				}
+			}
+			// 
+
 		}
-		
-		
-		///
-		
-		// Object Connections
-		while(!line.startsWith(";Takes section") && !queue.isEmpty())
+	}
+
+	private void readGeometry(String currentLine)
+	{
+		Object[] geoItems = getID_NameAndType(currentLine.substring(10));
+		long geometry_id = (Long) geoItems[0];
+
+		FbxMesh mesh = new FbxMesh(geometry_id);
+
+		String line = "";
+		while(true)
 		{
-line = queue.dequeue().trim();
-			
+			line = queue.dequeue().trim();
+			if (line.startsWith("Vert"))
+			{
+				int count = toInt(line.substring(11).split(" ")[0]);
+				mesh.setVertices(readFloatAttribute(queue, count));
+			} 
+			else if (line.startsWith("Poly"))
+			{
+				int count = toInt(line.substring(21).split(" ")[0]);
+				mesh.setIndices(readIndicesAttribute(queue, count));
+			} 
+			else if (line.startsWith("Normals"))
+			{
+				int count = toInt(line.substring(10).split(" ")[0]);
+
+				mesh.setNormals(readFloatAttribute(queue, count));
+			} 
+			else if (line.startsWith("UV:"))
+			{
+				int count = toInt(line.substring(5).split(" ")[0]);
+				mesh.setUV(readFloatAttribute(queue, count));
+			} 
+			else if (line.startsWith("UVIndex"))
+			{
+				int count = toInt(line.substring(10).split(" ")[0]);
+				mesh.setUVIndices(readUVIndicesAttribute(queue, count));
+				break;
+			}
+		}
+
+		maps.put(geometry_id, mesh);
+	}
+
+	private void readNodeAttribute(String currentLine)
+	{
+		Object[] items = getID_NameAndType(currentLine.substring(15));
+		long node_attribute_id = (Long) items[0];
+
+		int attributeType;
+		FbxNodeAttribute nodeAttribute = null;
+
+		if(items[2].equals("Null"))
+		{
+			attributeType = FbxNodeAttribute.Null;
+			nodeAttribute = new FbxNodeAttribute(node_attribute_id, attributeType);
+		}
+		else if(items[2].equals("Mesh"))
+		{
+			attributeType = FbxNodeAttribute.Mesh;
+			nodeAttribute = new FbxNodeAttribute(node_attribute_id, attributeType);
+		}
+		else
+		{
+			int skeletonType = 0;
+
+			if(currentLine.contains("Limb")) // Limb  or LimbNode
+			{
+				skeletonType = FbxSkeleton.LimbNode;
+			}
+			else if(currentLine.contains("Root") || currentLine.contains("Effector"))
+			{
+				skeletonType = FbxSkeleton.Root;
+			}
+
+			nodeAttribute = new FbxSkeleton(node_attribute_id, skeletonType);
+		}
+
+		maps.put(node_attribute_id, nodeAttribute);
+	}
+	
+	private void readModel(String currentLine)
+	{
+		StringBuilder[] item = new StringBuilder[2];
+		item[0] = new StringBuilder();
+		item[1] = new StringBuilder();
+		int inner_index = 0;
+		boolean begin = false;
+		char temp = 0;
+		
+		String line = currentLine;
+
+		for (int j = 0; j < line.length(); j++)
+		{
+			char c = line.charAt(j);
+
+			if (temp == ':')
+			{
+				if (c == ' ')
+				{
+					begin = true;
+					inner_index = 0;
+					continue;
+				} 
+				else if (c == ':')
+				{
+					begin = true;
+					inner_index = 1;
+					continue;
+				}
+			}
+
+			if (c == '"' || c == ',')
+			{
+				begin = false;
+
+				if (inner_index == 1)
+				{
+					break;
+				}
+			}
+
+			if (begin)
+			{
+				item[inner_index].append(c);
+			}
+
+			temp = c;
+		}
+
+		long nodeID = toLong(item[0].toString().trim());
+		String nodeName = item[1].toString();
+		
+		FbxNode node = new FbxNode(nodeID);
+		node.setName(nodeName);
+
+		FbxVector3 lclT = new FbxVector3();
+		FbxVector3 lclR = new FbxVector3();
+		FbxVector3 lclS = new FbxVector3(1,1,1);
+
+		while(!(line = queue.dequeue()).contains("}"))
+		{
+			if (line.contains("Lcl Translation"))
+			{
+				lclT = new FbxVector3(splitCommaToFloatArray(line, 3));
+			} else if (line.contains("Lcl Rotation"))
+			{
+				lclR = new FbxVector3(splitCommaToFloatArray(line, 3));
+			} else if (line.contains("Lcl Scaling"))
+			{
+				lclS = new FbxVector3(splitCommaToFloatArray(line, 3));
+			}
+		}
+
+		node.setLclTranslation(lclT);
+		node.setLclRotation(lclR);
+		node.setLclScaling(lclS);
+
+		maps.put(nodeID, node);
+	}
+	
+	private void readDeformer(String currentLine)
+	{
+		String line = currentLine;
+		
+		Object[] items = getID_NameAndType(line.substring(10));
+		long deformer_id = (Long) items[0];
+
+		if (items[2].equals("Skin"))
+		{
+			FbxSkin skin = new FbxSkin(deformer_id);
+			maps.put(deformer_id, skin);
+		}
+		else
+		{
+			FbxCluster cluster = new FbxCluster(deformer_id);
+
+			while(true)
+			{
+				line = queue.dequeue().trim();
+				if (line.startsWith("Indexes"))
+				{
+					int count = toInt(line.substring(10).split(" ")[0]);
+					cluster.setIndices(readIntAttribute(queue, count));
+				} 
+				else if (line.startsWith("Weights"))
+				{
+					int count = toInt(line.substring(10).split(" ")[0]);
+					cluster.setWeights(readFloatAttribute(queue, count));
+				} 
+				else if (line.startsWith("Transform:"))
+				{
+					int count = toInt(line.substring(12).split(" ")[0]);
+					cluster.setTransform(readFloatAttribute(queue, count));
+				}
+				else if (line.startsWith("TransformLink"))
+				{
+					int count = toInt(line.substring(16).split(" ")[0]);
+					cluster.setTransformLink(readFloatAttribute(queue, count));
+					break;
+				}
+			}
+
+			maps.put(deformer_id, cluster);
+		}
+	}
+	
+	private void readMaterial(String currentLine)
+	{
+		String line = currentLine;
+		
+		Object[] items = getID_NameAndType(line.substring(10));
+
+		long material_id = (Long) items[0];
+		String material_name = ((String)items[1]).substring(10);
+
+		FbxSurfacePhong material = new FbxSurfacePhong(material_id);
+		material.setName(material_name);
+
+		// Read Properties
+		while(!line.contains("}"))
+		{
+			line = queue.dequeue().trim();
+
+			if(line.startsWith("P: \"Emissive\""))
+			{
+				material.getEmissive().set(new FbxVector3(splitCommaToFloatArray(line, 3)));
+			}
+			else if(line.startsWith("P: \"Ambient\""))
+			{
+				material.getAmbient().set(new FbxVector3(splitCommaToFloatArray(line, 3)));
+			}
+			else if(line.startsWith("P: \"Diffuse\""))
+			{
+				material.getDiffuse().set(new FbxVector3(splitCommaToFloatArray(line, 3)));
+			}
+			else if(line.startsWith("P: \"NormalMap\""))
+			{
+				material.getNormalMap().set(new FbxVector3(splitCommaToFloatArray(line, 3)));
+			}
+			else if(line.startsWith("P: \"Bump\""))
+			{
+				material.getBump().set(new FbxVector3(splitCommaToFloatArray(line, 3)));
+			}
+			else if(line.startsWith("P: \"TransparentColor\""))
+			{
+				material.getTransparentColor().set(new FbxVector3(splitCommaToFloatArray(line, 3)));
+			}
+			else if(line.startsWith("P: \"DisplacementColor\""))
+			{
+				material.getDisplacementColor().set(new FbxVector3(splitCommaToFloatArray(line, 3)));
+			}
+			else if(line.startsWith("P: \"VectorDisplacementColor\""))
+			{
+				material.getVectorDisplacementColor().set(new FbxVector3(splitCommaToFloatArray(line, 3)));
+			}
+			else if(line.startsWith("P: \"Specular\""))
+			{
+				material.getSpecular().set(new FbxVector3(splitCommaToFloatArray(line, 3)));
+			}
+			else if(line.startsWith("P: \"Reflection\""))
+			{
+				material.getReflection().set(new FbxVector3(splitCommaToFloatArray(line, 3)));
+			}
+			else if(line.startsWith("P: \"Shinniness\""))
+			{
+				material.setShinniness( splitCommaToFloat(line) );
+			}
+			else if(line.startsWith("P: \"EmissiveFactor"))
+			{
+				material.setEmissiveFactor( splitCommaToFloat(line) );
+			}
+			else if(line.startsWith("P: \"AmbientFactor"))
+			{
+				material.setAmbientFactor( splitCommaToFloat(line) );
+			}
+			else if(line.startsWith("P: \"DiffuseFactor"))
+			{
+				material.setDiffuseFactor( splitCommaToFloat(line) );
+			}
+			else if(line.startsWith("P: \"BumpFactor"))
+			{
+				material.setBumpFactor( splitCommaToFloat(line) );
+			}
+			else if(line.startsWith("P: \"TransparencyFactor"))
+			{
+				material.setTransparencyFactor( splitCommaToFloat(line) );
+			}
+			else if(line.startsWith("P: \"DisplacementFactor"))
+			{
+				material.setDisplacementFactor( splitCommaToFloat(line) );
+			}
+			else if(line.startsWith("P: \"VectorDisplacementFactor"))
+			{
+				material.setVectorDisplacementFactor( splitCommaToFloat(line) );
+			}
+			else if(line.startsWith("P: \"SpecularFactor"))
+			{
+				material.setSpecularFactor( splitCommaToFloat(line) );
+			}
+			else if(line.startsWith("P: \"ReflectionFactor"))
+			{
+				material.setReflectionFactor( splitCommaToFloat(line) );
+			}
+
+//			P: "EmissiveFactor", "double", "Number", "",0
+//			P: "AmbientColor", "ColorRGB", "Color", "",0.317647069692612,0.317647069692612,0.317647069692612
+//			P: "DiffuseColor", "ColorRGB", "Color", "",0.317647069692612,0.317647069692612,0.317647069692612
+//			P: "TransparentColor", "ColorRGB", "Color", "",1,1,1
+//			P: "SpecularColor", "ColorRGB", "Color", "",0.899999976158142,0.899999976158142,0.899999976158142
+//			P: "SpecularFactor", "double", "Number", "",0
+//			P: "ShininessExponent", "double", "Number", "",1.99999991737042
+//			P: "Emissive", "Vector3D", "Vector", "",0,0,0
+//			P: "Ambient", "Vector3D", "Vector", "",0.317647069692612,0.317647069692612,0.317647069692612
+//			P: "Diffuse", "Vector3D", "Vector", "",0.317647069692612,0.317647069692612,0.317647069692612
+//			P: "Specular", "Vector3D", "Vector", "",0,0,0
+//			P: "Shininess", "double", "Number", "",1.99999991737042
+//			P: "Opacity", "double", "Number", "",1
+//			P: "Reflectivity", "double", "Number", "",0
+		}
+
+		maps.put(material_id, material);
+	}
+	
+	private void readAnimCurveNode(String currentLine)
+	{
+		String line = currentLine;
+		
+		long anim_curve_node_id = toLong(line.substring(20).split(",")[0]);
+		FbxAnimCurveNode animCurveNode = new FbxAnimCurveNode(anim_curve_node_id);
+
+		maps.put(anim_curve_node_id, animCurveNode);
+	}
+	
+	private void readAnimCurve(String currentLine)
+	{
+		String line = currentLine;
+		
+		long anim_curve_id = toLong(line.substring(16).split(",")[0]);
+		FbxAnimCurve animCurve = new FbxAnimCurve(anim_curve_id);
+
+		long[] times = null;
+		float[] values = null;
+
+		while(true)
+		{
+			line = queue.dequeue().trim();
+			if (line.startsWith("KeyTime:"))
+			{
+				int count = toInt(line.substring(10).split(" ")[0]);
+				times = readLongAttribute(queue, count);
+				if(times.length > 0)
+				{
+					int length = (int) ( (times[times.length - 1] - times[0])  / 1539538600L) + 1;
+					if(length > keyframeLength)
+					{
+						keyframeLength = length;
+						startFrame = (int) (times[0] / 1539538600L);
+						endFrame = (int) (times[times.length - 1] / 1539538600L);
+					}
+				}
+			}
+			else if (line.startsWith("KeyValueFloat:"))
+			{
+				int count = toInt(line.substring(16).split(" ")[0]);
+				values = readFloatAttribute(queue, count);
+				break;
+			}
+		}
+
+		animCurve.set(times, values);
+		maps.put(anim_curve_id, animCurve);
+	}
+	
+	private void readTexture(String currentLine)
+	{
+		String line = currentLine;
+		
+		String[] t = line.substring(9).split(",");
+		long texture_id = toLong(t[0]);
+		String texture_name = t[1].split("\"")[1].substring(9);
+
+		FbxFileTexture texture = new FbxFileTexture(texture_id);
+		texture.setName(texture_name);
+
+		while(!line.contains("}"))
+		{
+			line = queue.dequeue().trim();
+		}
+		line = queue.dequeue().trim();
+		// Read Properties
+		while(!line.contains("}"))
+		{
+			line = queue.dequeue().trim();
+			String[] tmp = line.split("\"");
+
+			if(line.startsWith("FileName:"))
+			{
+				String tt = tmp[tmp.length-1];
+				String fileName = tt;
+
+				int indexOfSlash = tt.lastIndexOf("\\");
+
+				if(indexOfSlash > -1)
+				{
+					fileName = tt.substring(indexOfSlash+1);
+				}
+
+				texture.setFileName(fileName);
+			}
+			else if(line.startsWith("RelativeFilename:"))
+			{
+				String tt = tmp[tmp.length-1];
+				texture.setRelativeFileName(tt);
+			}
+			else if(line.startsWith("Media:"))
+			{
+
+			}
+		}
+
+		maps.put(texture_id, texture);
+	}
+	
+	private void readVideo(String currentLine)
+	{
+		
+	}
+	
+	private void readConnections()
+	{
+		String line = "";
+		while(!queue.isEmpty() && !(line = queue.dequeue().trim()).startsWith(";"))
+		{
 			if(line.endsWith("RootNode"))
 			{
 				line = queue.dequeue().trim();
@@ -751,6 +809,7 @@ line = queue.dequeue().trim();
 					{
 						node.setLclScaling(animCurveNode);
 					}
+					
 				}
 			}
 			else if (line.startsWith(";NodeAtt"))
@@ -796,7 +855,7 @@ line = queue.dequeue().trim();
 				long x_id = toLong(first_line[0]);
 				long y_id = toLong(second_line[0]);
 				long z_id = toLong(third_line[0]);
-
+				
 				FbxAnimCurveNode animCurveNode = (FbxAnimCurveNode) maps.get(anim_curve_node_id);
 				FbxAnimCurve animCurveX = (FbxAnimCurve) maps.get(x_id);
 				FbxAnimCurve animCurveY = (FbxAnimCurve) maps.get(y_id);
@@ -843,6 +902,7 @@ line = queue.dequeue().trim();
 				FbxTexture texture = (FbxTexture) maps.get(texture_id);
 				FbxSurfacePhong material = (FbxSurfacePhong) maps.get(material_id);
 
+				
 				if(target.equalsIgnoreCase("DiffuseColor"))
 				{
 					material.setDiffuseTexture(texture);
@@ -853,11 +913,12 @@ line = queue.dequeue().trim();
 				}
 			}
 			
-			//
+			
 		}
-		
-		//
-		
+	}
+
+	private void setup()
+	{
 		for (FbxObject fbxObject : maps.values())
 		{
 			if(fbxObject instanceof FbxGeometry)
@@ -881,9 +942,11 @@ line = queue.dequeue().trim();
 			sceneRootNode.addChild(rootnode);
 		}
 		
-		scene.setObjectDefinitions(model_count, geometry_count, node_attribute_count, anim_curve_count, anim_curve_node_count, deformer_count);
 		scene.setKeyframe(startFrame, endFrame, keyframeLength);
 	}
+	
+	// Static Definition //
+	private static StringBuilder sb = new StringBuilder();
 
 	private static float[] readFloatAttribute(FbxQueue<String> queue, int count)
 	{
@@ -1537,3 +1600,4 @@ line = queue.dequeue().trim();
 		return Math.pow(10, -cast) * decimal;
 	}
 }
+

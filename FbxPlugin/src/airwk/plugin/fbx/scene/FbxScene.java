@@ -15,14 +15,7 @@ public class FbxScene
 	private ArrayList<FbxGeometry> geometries = new ArrayList<FbxGeometry>();
 	private ArrayList<FbxSurfaceMaterial> materials = new ArrayList<FbxSurfaceMaterial>();
 	private FbxGlobalSetting globalSetting = new FbxGlobalSetting();
-	
-	private int modelCount = 0;
-//	private int geometryCount = 0;
-	private int nodeAttributeCount = 0;
-	private int animCurveCount = 0;
-	private int animCurveNodeCount = 0;
-	private int deformerCount = 0;
-	
+
 	private int startKeyframe;
 	private int stopKeyframe;
 	private int totalKeyframe;
@@ -95,41 +88,6 @@ public class FbxScene
 	public FbxSurfaceMaterial getMaterial(int index)
 	{
 		return materials.get(index);
-	}
-	
-	public void setObjectDefinitions(int modelCount, int geometryCount, int nodeAttributeCount, int animCurveCount, int animCurveNodeCount, int deformerCount)
-	{
-		this.modelCount = modelCount;
-//		this.geometryCount = geometryCount;
-		this.nodeAttributeCount = nodeAttributeCount;
-		this.animCurveCount = animCurveCount;
-		this.animCurveNodeCount = animCurveNodeCount;
-		this.deformerCount = deformerCount;
-	}
-
-	public int getModelCount()
-	{
-		return modelCount;
-	}
-	
-	public int getNodeAttributeCount()
-	{
-		return nodeAttributeCount;
-	}
-	
-	public int getAnimCurveCount()
-	{
-		return animCurveCount;
-	}
-	
-	public int getAnimCurveNodeCount()
-	{
-		return animCurveNodeCount;
-	}
-	
-	public int getDeformerCount()
-	{
-		return deformerCount;
 	}
 	
 	public void setKeyframe(int start, int stop, int total)
