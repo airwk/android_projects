@@ -173,7 +173,7 @@ public class FbxAnimCurve extends FbxObject
 		{
 			return (int) ((keyTime[keyTime.length-1] - keyTime[0]) / 1539538600L) + 1;
 		}
-		
+
 		return 0;
 	}
 }

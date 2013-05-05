@@ -75,6 +75,11 @@ public class FbxFile
 		setup();
 	}
 	
+	public FbxScene getScene()
+	{
+		return scene;
+	}
+	
 	private void read()
 	{
 		while(!queue.isEmpty())
@@ -204,15 +209,17 @@ public class FbxFile
 			current_anim_curve_node_count = 0, current_anim_curve_count = 0, current_material_count = 0, current_texture_count = 0, current_video_count = 0;
 		
 		String line = "";
-		while(!(line = queue.dequeue().trim()).startsWith(";"))
+		while(!(line = queue.dequeue().trim()).startsWith(";-"))
 		{
 			// read Geometry
 			if(current_geometry_count < geometry_count)
 			{
+				
 				if(line.startsWith("Geometry:"))
 				{
 					current_geometry_count++;
 					readGeometry(line);
+					continue;
 				}
 			}
 			// read nodeAttribute
@@ -222,6 +229,7 @@ public class FbxFile
 				{
 					current_node_attribute_count++;
 					readNodeAttribute(line);
+					continue;
 				}
 			}
 			// read Node
@@ -231,6 +239,7 @@ public class FbxFile
 				{
 					current_node_count++;
 					readModel(line);
+					continue;
 				}
 			}
 			// read Deformer
@@ -240,6 +249,7 @@ public class FbxFile
 				{
 					current_deformer_count++;
 					readDeformer(line);
+					continue;
 				}
 			}
 			// read Material
@@ -249,15 +259,18 @@ public class FbxFile
 				{
 					current_material_count++;
 					readMaterial(line);
+					continue;
 				}
 			}
 			// read AnimCurvNode
 			if(current_anim_curve_node_count < anim_curve_node_count)
 			{
+				
 				if (line.startsWith("AnimationCurveNode:"))
 				{
 					current_anim_curve_node_count++;
 					readAnimCurveNode(line);
+					continue;
 				}
 			}
 			// read AnimCurve
@@ -267,6 +280,7 @@ public class FbxFile
 				{
 					current_anim_curve_count++;
 					readAnimCurve(line);
+					continue;
 				}
 			}
 			// read Texture
@@ -276,6 +290,7 @@ public class FbxFile
 				{
 					current_texture_count++;
 					readTexture(line);
+					continue;
 				}
 			}
 			// read Video
@@ -285,10 +300,10 @@ public class FbxFile
 				{
 					current_video_count++;
 					readVideo(line);
+					continue;
 				}
 			}
 			// 
-
 		}
 	}
 
@@ -631,7 +646,7 @@ public class FbxFile
 		
 		long anim_curve_id = toLong(line.substring(16).split(",")[0]);
 		FbxAnimCurve animCurve = new FbxAnimCurve(anim_curve_id);
-
+		
 		long[] times = null;
 		float[] values = null;
 
@@ -723,8 +738,9 @@ public class FbxFile
 	private void readConnections()
 	{
 		String line = "";
-		while(!queue.isEmpty() && !(line = queue.dequeue().trim()).startsWith(";"))
+		while(!queue.isEmpty())
 		{
+			line = queue.dequeue().trim();
 			if(line.endsWith("RootNode"))
 			{
 				line = queue.dequeue().trim();
@@ -783,6 +799,7 @@ public class FbxFile
 			}
 			else if (line.startsWith(";AnimCurveNode:"))
 			{
+
 				String[] tmp0 = line.split(",");
 				if(tmp0[1].startsWith(" Model:"))
 				{
