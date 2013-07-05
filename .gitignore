@@ -1,0 +1,4 @@
+
+*.class
+
+FbxPlugin/bin/airwk/plugin/fbx/scene/FbxScene.class
