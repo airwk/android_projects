@@ -13,6 +13,7 @@ import airwk.graphics.geometry.SkinnedMesh;
 import airwk.graphics.shading.Material;
 import airwk.graphics.shading.Texture2D;
 import airwk.plugin.fbx.FbxFile;
+import airwk.plugin.fbx.core.FbxGlobalSetting;
 import airwk.plugin.fbx.math.FbxVector3;
 import airwk.plugin.fbx.scene.FbxScene;
 import airwk.plugin.fbx.scene.animation.FbxAnimCurveNode;
@@ -87,23 +88,24 @@ public final class FbxDroid
 
 	private void loadAxisRotation(FbxScene scene,ScenePrefab scenePrefab)
 	{
+		FbxGlobalSetting globalSetting = scene.getGlobalSetting();
 		float[] axisRotation = { 1,0,0,0,	0,1,0,0,	0,0,1,0,	0,0,0,1 };
 		float[] forward = new float[3];
 		float[] up = new float[3];
 		float[] right = new float[3];
 		
-		int frontAxisSign = scene.globalSetting().getFrontAxisSign();
+		int frontAxisSign = globalSetting.getFrontAxisSign();
 
-		switch(scene.globalSetting().getFrontAxis())
+		switch(globalSetting.getFrontAxis())
 		{
 			case 0 : forward[0] = frontAxisSign; break;
 			case 1 : forward[1] = frontAxisSign; break;
 			case 2 : forward[2] = frontAxisSign; break;
 		}
 
-		int upAxisSign = scene.globalSetting().getUpAxisSign();
+		int upAxisSign = globalSetting.getUpAxisSign();
 
-		switch(scene.globalSetting().getUpAxis())
+		switch(globalSetting.getUpAxis())
 		{
 			case 0 : up[0] = upAxisSign; break;
 			case 1 : up[1] = upAxisSign; break;
@@ -189,7 +191,7 @@ public final class FbxDroid
 			
 			if(hasAnimation)
 			{
-				int fps = scene.globalSetting().getTimeMode().getFrameRate();
+				int fps = scene.getGlobalSetting().getTimeMode().getFrameRate();
 				Animation animation = new Animation(0, 100);
 				animation.setFrameRate(fps);
 

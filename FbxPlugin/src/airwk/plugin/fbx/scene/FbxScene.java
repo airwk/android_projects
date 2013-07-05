@@ -25,7 +25,7 @@ public class FbxScene
 		return rootnodes;
 	}
 	
-	public FbxGlobalSetting globalSetting()
+	public FbxGlobalSetting getGlobalSetting()
 	{
 		return globalSetting;
 	}

@@ -6,6 +6,7 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import airwk.plugin.fbx.core.FbxGlobalSetting;
 import airwk.plugin.fbx.core.FbxObject;
 import airwk.plugin.fbx.math.FbxVector3;
 import airwk.plugin.fbx.scene.FbxScene;
@@ -117,35 +118,36 @@ public class FbxFile
 	private void readGlobalSettings()
 	{
 		String line = "";
+		FbxGlobalSetting globalSetting = scene.getGlobalSetting();
 		while(!(line = queue.dequeue().trim()).startsWith(";"))
 		{
 			if(line.startsWith("P: \"TimeMode"))
 			{
-				scene.globalSetting().getTimeMode().setMode(getLastCommaAsInt(line));
+				globalSetting.getTimeMode().setMode(getLastCommaAsInt(line));
 			}
 			else if(line.startsWith("P: \"TimeSpanStart"))
 			{
-				scene.globalSetting().getTimeSpan().setStart( getLastCommaAsLong(line) );
+				globalSetting.getTimeSpan().setStart( getLastCommaAsLong(line) );
 			}
 			else if(line.startsWith("P: \"TimeSpanStop"))
 			{
-				scene.globalSetting().getTimeSpan().setStop( getLastCommaAsLong(line) );
+				globalSetting.getTimeSpan().setStop( getLastCommaAsLong(line) );
 			}
 			else if(line.startsWith("P: \"UpAxis\""))
 			{
-				scene.globalSetting().setUpAxis(getLastCommaAsInt(line));
+				globalSetting.setUpAxis(getLastCommaAsInt(line));
 			}
 			else if(line.startsWith("P: \"UpAxisSign"))
 			{
-				scene.globalSetting().setUpAxisSign(getLastCommaAsInt(line));
+				globalSetting.setUpAxisSign(getLastCommaAsInt(line));
 			}
 			else if(line.startsWith("P: \"FrontAxis\""))
 			{
-				scene.globalSetting().setFrontAxis(getLastCommaAsInt(line));
+				globalSetting.setFrontAxis(getLastCommaAsInt(line));
 			}
 			else if(line.startsWith("P: \"FrontAxisSign"))
 			{
-				scene.globalSetting().setFrontAxisSign(getLastCommaAsInt(line));
+				globalSetting.setFrontAxisSign(getLastCommaAsInt(line));
 			}
 		}
 		
