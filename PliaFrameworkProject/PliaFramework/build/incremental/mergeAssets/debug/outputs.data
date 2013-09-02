@@ -1,0 +1,11 @@
+# incremental data. DO NOT EDIT.
+# format is <lastModified> <length> <SHA-1> <path>
+# Encoding is UTF-8
+1378023452553 30004 0585cb2cda4c00bb658a5b3793f0b1c2c3fd46f8 C:\Users\Wirune\AndroidStudioProjects\PliaFrameworkProject\PliaFramework\build\assets\debug\spritefont\Nexa Light.otf
+1378023452506 30388 3f84b6b61ce255b6dfab246bd369fd53edd029a8 C:\Users\Wirune\AndroidStudioProjects\PliaFrameworkProject\PliaFramework\build\assets\debug\spritefont\Nexa Bold.otf
+1378023452552 163 6b588d8073f73438a6dc3d9a10f91b85b72e5474 C:\Users\Wirune\AndroidStudioProjects\PliaFrameworkProject\PliaFramework\build\assets\debug\shader\ambient01_vs.glsl
+1378023452554 150 10830d5291510012abe0fb086ef1247032e186fa C:\Users\Wirune\AndroidStudioProjects\PliaFrameworkProject\PliaFramework\build\assets\debug\shader\ambient01_fs.glsl
+1378023452505 176 61241c0a3c9919f037fde04cfb69e73947d65c60 C:\Users\Wirune\AndroidStudioProjects\PliaFrameworkProject\PliaFramework\build\assets\debug\settings\spritefont.xml
+1378023452551 126 498182dfb0e172ae1c9745ff7993b73909d2585d C:\Users\Wirune\AndroidStudioProjects\PliaFrameworkProject\PliaFramework\build\assets\debug\settings\shader.xml
+1378023452506 163 6b588d8073f73438a6dc3d9a10f91b85b72e5474 C:\Users\Wirune\AndroidStudioProjects\PliaFrameworkProject\PliaFramework\build\assets\debug\shader\ambient02_vs.glsl
+1378044940173 206 61fa412d3362e952179ee715fbc7627ad2ce9fc2 C:\Users\Wirune\AndroidStudioProjects\PliaFrameworkProject\PliaFramework\build\assets\debug\shader\ambient02_fs.glsl

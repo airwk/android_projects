@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merger>
+
+    <dataSet config="main" >
+        <source path="C:\Users\Wirune\AndroidStudioProjects\PliaFrameworkProject\PliaFramework\src\main\assets" >
+            <file
+                name="settings/shader.xml"
+                path="C:\Users\Wirune\AndroidStudioProjects\PliaFrameworkProject\PliaFramework\src\main\assets\settings\shader.xml" />
+            <file
+                name="settings/spritefont.xml"
+                path="C:\Users\Wirune\AndroidStudioProjects\PliaFrameworkProject\PliaFramework\src\main\assets\settings\spritefont.xml" />
+            <file
+                name="shader/ambient01_fs.glsl"
+                path="C:\Users\Wirune\AndroidStudioProjects\PliaFrameworkProject\PliaFramework\src\main\assets\shader\ambient01_fs.glsl" />
+            <file
+                name="shader/ambient01_vs.glsl"
+                path="C:\Users\Wirune\AndroidStudioProjects\PliaFrameworkProject\PliaFramework\src\main\assets\shader\ambient01_vs.glsl" />
+            <file
+                name="shader/ambient02_fs.glsl"
+                path="C:\Users\Wirune\AndroidStudioProjects\PliaFrameworkProject\PliaFramework\src\main\assets\shader\ambient02_fs.glsl" />
+            <file
+                name="shader/ambient02_vs.glsl"
+                path="C:\Users\Wirune\AndroidStudioProjects\PliaFrameworkProject\PliaFramework\src\main\assets\shader\ambient02_vs.glsl" />
+            <file
+                name="spritefont/Nexa Bold.otf"
+                path="C:\Users\Wirune\AndroidStudioProjects\PliaFrameworkProject\PliaFramework\src\main\assets\spritefont\Nexa Bold.otf" />
+            <file
+                name="spritefont/Nexa Light.otf"
+                path="C:\Users\Wirune\AndroidStudioProjects\PliaFrameworkProject\PliaFramework\src\main\assets\spritefont\Nexa Light.otf" />
+        </source>
+    </dataSet>
+    <dataSet config="debug" >
+        <source path="C:\Users\Wirune\AndroidStudioProjects\PliaFrameworkProject\PliaFramework\src\debug\assets" />
+    </dataSet>
+
+</merger>

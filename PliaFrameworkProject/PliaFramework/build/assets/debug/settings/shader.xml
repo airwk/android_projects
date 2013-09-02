@@ -1,0 +1,5 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<shader>
+    <program id="ambient01" />
+    <program id="ambient02" />
+</shader>
